@@ -3,8 +3,8 @@ import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask
 from app_config import AppConfig
-from dds_loader.repository.dds_repository import DdsRepository
-from dds_loader.dds_message_processor_job import DdsMessageProcessor
+from stg_loader.repository.stg_repository import StgRepository
+from stg_loader.stg_message_processor_job import StgMessageProcessor
 
 app = Flask(__name__)
 
@@ -15,8 +15,9 @@ config = AppConfig()
 # Обратиться к нему можно будет GET-запросом по адресу localhost:5000/health.
 # Если в ответе будет healthy - сервис поднялся и работает.
 @app.get('/health')
-def hello_world():
+def health():
     return 'healthy'
+
 
 if __name__ == '__main__':
     # Устанавливаем уровень логгирования в Debug, чтобы иметь возможность просматривать отладочные логи.
@@ -25,21 +26,23 @@ if __name__ == '__main__':
     # 1. Инициализируем зависимости, используя методы из config
     kafka_consumer = config.kafka_consumer()
     kafka_producer = config.kafka_producer()
+    redis_client = config.redis_client()
 
     # 2. Создаем подключение к БД и репозиторий
     pg_db = config.pg_warehouse_db()
-    dds_repository = DdsRepository(pg_db)
+    stg_repository = StgRepository(pg_db)
 
     # 3. Инициализируем процессор сообщений, передавая объекты в конструктор
-    proc = DdsMessageProcessor(
-        config.kafka_consumer(), 
-        config.kafka_producer(), 
-        dds_repository, 
+    proc = StgMessageProcessor(
+        kafka_consumer,
+        kafka_producer,
+        redis_client,
+        stg_repository,
         app.logger
     )
 
     # Запускаем процессор в бэкграунде.
-    # BackgroundScheduler будет по расписанию вызывать функцию run нашего обработчика(DdsMessageProcessor).
+    # BackgroundScheduler будет по расписанию вызывать функцию run нашего обработчика(MessageProcessor).
     scheduler = BackgroundScheduler()
     scheduler.add_job(
         func=proc.run, 

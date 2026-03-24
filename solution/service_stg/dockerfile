@@ -1,0 +1,59 @@
+# Воспользуемся официальным образом для запуска python.
+FROM python:3.10
+
+# 1. Определение аргументов сборки (ARG)
+ARG KAFKA_HOST
+ARG KAFKA_PORT
+ARG KAFKA_CONSUMER_USERNAME
+ARG KAFKA_CONSUMER_PASSWORD
+ARG KAFKA_CONSUMER_GROUP
+ARG KAFKA_SOURCE_TOPIC
+ARG KAFKA_DESTINATION_TOPIC
+
+ARG REDIS_HOST
+ARG REDIS_PORT
+ARG REDIS_PASSWORD
+
+ARG PG_WAREHOUSE_HOST
+ARG PG_WAREHOUSE_PORT
+ARG PG_WAREHOUSE_DBNAME
+ARG PG_WAREHOUSE_USER
+ARG PG_WAREHOUSE_PASSWORD
+
+# 2. Проброс ARG в ENV (чтобы Python видел их через os.getenv)
+ENV KAFKA_HOST=$KAFKA_HOST \
+    KAFKA_PORT=$KAFKA_PORT \
+    KAFKA_CONSUMER_USERNAME=$KAFKA_CONSUMER_USERNAME \
+    KAFKA_CONSUMER_PASSWORD=$KAFKA_CONSUMER_PASSWORD \
+    KAFKA_CONSUMER_GROUP=$KAFKA_CONSUMER_GROUP \
+    KAFKA_SOURCE_TOPIC=$KAFKA_SOURCE_TOPIC \
+    KAFKA_DESTINATION_TOPIC=$KAFKA_DESTINATION_TOPIC \
+    REDIS_HOST=$REDIS_HOST \
+    REDIS_PORT=$REDIS_PORT \
+    REDIS_PASSWORD=$REDIS_PASSWORD \
+    PG_WAREHOUSE_HOST=$PG_WAREHOUSE_HOST \
+    PG_WAREHOUSE_PORT=$PG_WAREHOUSE_PORT \
+    PG_WAREHOUSE_DBNAME=$PG_WAREHOUSE_DBNAME \
+    PG_WAREHOUSE_USER=$PG_WAREHOUSE_USER \
+    PG_WAREHOUSE_PASSWORD=$PG_WAREHOUSE_PASSWORD
+
+# Обновим компоненты в контейнере.
+RUN apt-get update -y
+
+# Копируем все файлы в текущую рабочую директорию (/src)
+COPY . .
+
+# Запускаем установку зависимостей.
+RUN pip install -r requirements.txt
+
+# Устанавливаем сертификат для подключения к ресурсам в Яндекс Облаке.
+RUN mkdir -p /crt
+RUN wget "https://storage.yandexcloud.net/cloud-certs/CA.pem" --output-document /crt/YandexInternalRootCA.crt
+RUN chmod 0600 /crt/YandexInternalRootCA.crt
+
+WORKDIR /src
+# Говорим, что запускать будем python.
+ENTRYPOINT ["python"]
+
+# А именно, файл app.py в директории src.
+CMD ["app.py"]
